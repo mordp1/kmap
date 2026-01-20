@@ -153,6 +153,9 @@ func main() {
 
 		config.Net.SASL.User = *saslUsername
 		config.Net.SASL.Password = *saslPassword
+		// AWS MSK requires SASL handshake version 1
+		config.Net.SASL.Handshake = true
+		config.Net.SASL.Version = 1
 
 		switch strings.ToUpper(*saslMechanism) {
 		case "PLAIN":
