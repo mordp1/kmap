@@ -79,10 +79,10 @@ type ConsumerGroupInfo struct {
 }
 
 type PartitionOffset struct {
-	Partition int    `json:"partition"`
-	Offset    int64  `json:"offset"`
-	Timestamp int64  `json:"timestamp,omitempty"`
-	Lag       int64  `json:"lag,omitempty"`
+	Partition int   `json:"partition"`
+	Offset    int64 `json:"offset"`
+	Timestamp int64 `json:"timestamp,omitempty"`
+	Lag       int64 `json:"lag,omitempty"`
 }
 
 type ConsumerGroupOffsets struct {
@@ -92,9 +92,9 @@ type ConsumerGroupOffsets struct {
 }
 
 type ConsumerOffsetsBackup struct {
-	Timestamp      string                  `json:"timestamp"`
-	Cluster        string                  `json:"cluster"`
-	ConsumerGroups []ConsumerGroupOffsets  `json:"consumer_groups"`
+	Timestamp      string                 `json:"timestamp"`
+	Cluster        string                 `json:"cluster"`
+	ConsumerGroups []ConsumerGroupOffsets `json:"consumer_groups"`
 }
 
 type KafkaClusterInfo struct {
@@ -150,7 +150,7 @@ func main() {
 	// Use Kafka 2.6 for AWS MSK 2.6 compatibility
 	config.Version = sarama.V2_6_0_0
 	config.Consumer.Return.Errors = true
-	
+
 	// AWS MSK connection settings
 	config.Net.DialTimeout = 30 * time.Second
 	config.Net.ReadTimeout = 30 * time.Second
@@ -910,6 +910,16 @@ func generateDOTFile(info *KafkaClusterInfo, filename string) error {
 	return os.WriteFile(filename, []byte(dot.String()), 0644)
 }
 
+func countInternalTopics(topics []TopicInfo) int {
+	count := 0
+	for _, topic := range topics {
+		if strings.HasPrefix(topic.Name, "__") {
+			count++
+		}
+	}
+	return count
+}
+
 func generateRecreateScript(info *KafkaClusterInfo, filename string) error {
 	var script strings.Builder
 
@@ -938,19 +948,28 @@ func generateRecreateScript(info *KafkaClusterInfo, filename string) error {
 	script.WriteString("KAFKA_TOPICS=\"kafka-topics.sh\"\n\n")
 
 	script.WriteString("echo \"========================================\"\n")
-	script.WriteString(fmt.Sprintf("echo \"Recreating %d topics from source cluster\"\n", info.TotalTopics))
+	script.WriteString(fmt.Sprintf("echo \"Recreating topics from source cluster\"\n"))
+	script.WriteString(fmt.Sprintf("echo \"Note: Skipping %d internal topics (starting with __)\\n\"\n", countInternalTopics(info.Topics)))
 	script.WriteString("echo \"Target: $BOOTSTRAP_SERVERS\"\n")
 	script.WriteString("echo \"========================================\"\n")
 	script.WriteString("echo \"\"\n\n")
 
 	script.WriteString("CREATED=0\n")
 	script.WriteString("FAILED=0\n")
+	script.WriteString("SKIPPED=0\n")
 	script.WriteString("FAILED_TOPICS=()\n\n")
 
 	// Generate create commands for each topic
-	for i, topic := range info.Topics {
-		script.WriteString(fmt.Sprintf("# Topic %d/%d: %s\n", i+1, info.TotalTopics, topic.Name))
-		script.WriteString(fmt.Sprintf("echo \"[%d/%d] Creating topic: %s\"\n", i+1, info.TotalTopics, topic.Name))
+	topicIndex := 0
+	for _, topic := range info.Topics {
+		// Skip internal topics (starting with __)
+		if strings.HasPrefix(topic.Name, "__") {
+			continue
+		}
+		
+		topicIndex++
+		script.WriteString(fmt.Sprintf("# Topic %d: %s\n", topicIndex, topic.Name))
+		script.WriteString(fmt.Sprintf("echo \"[%d] Creating topic: %s\"\n", topicIndex, topic.Name))
 
 		// Build the kafka-topics command
 		cmd := fmt.Sprintf("if $KAFKA_TOPICS --bootstrap-server \"$BOOTSTRAP_SERVERS\" $COMMAND_CONFIG \\\n")
@@ -993,6 +1012,7 @@ func generateRecreateScript(info *KafkaClusterInfo, filename string) error {
 	script.WriteString("echo \"Topic Recreation Summary:\"\n")
 	script.WriteString("echo \"  Successfully created: $CREATED\"\n")
 	script.WriteString("echo \"  Failed/Skipped: $FAILED\"\n")
+	script.WriteString(fmt.Sprintf("echo \"  Internal topics skipped: %d\"\n", countInternalTopics(info.Topics)))
 	script.WriteString("if [ $FAILED -gt 0 ]; then\n")
 	script.WriteString("  echo \"\"\n")
 	script.WriteString("  echo \"Failed/Skipped Topics:\"\n")
