@@ -1,0 +1,37 @@
+# Binaries
+kafka-analyzer
+kafka-analyzer-*
+kmap
+kmap-*
+*.exe
+bin/
+
+# Output files
+kafka-cluster-info.json
+kafka-cluster-report.html
+kafka-relationships.dot
+kafka-topology.dot
+recreate-topics.sh
+*.dot
+*.png
+*.svg
+*.pdf
+cluster-*.json
+cluster-*.html
+client.config
+*.backup
+*.bak
+
+# Go
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
