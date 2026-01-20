@@ -126,8 +126,17 @@ func main() {
 	log.Printf("Connecting to Kafka brokers: %v", brokerList)
 
 	config := sarama.NewConfig()
-	config.Version = sarama.V2_8_0_0
+	// Use Kafka 2.6 for AWS MSK 2.6 compatibility
+	config.Version = sarama.V2_6_0_0
 	config.Consumer.Return.Errors = true
+	
+	// AWS MSK connection settings
+	config.Net.DialTimeout = 30 * time.Second
+	config.Net.ReadTimeout = 30 * time.Second
+	config.Net.WriteTimeout = 30 * time.Second
+	config.Metadata.Timeout = 60 * time.Second
+	config.Metadata.Retry.Max = 3
+	config.Metadata.Retry.Backoff = 250 * time.Millisecond
 
 	// Configure security protocol
 	if *securityProtocol != "" {
