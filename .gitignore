@@ -5,6 +5,7 @@ kmap
 kmap-*
 *.exe
 bin/
+msk-deploy/
 
 # Output files
 kafka-cluster-info.json

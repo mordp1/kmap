@@ -188,6 +188,15 @@ func main() {
 			}
 			tlsConfig.RootCAs = caCertPool
 			log.Printf("Loaded CA certificate from: %s", *tlsCACert)
+		} else if !*tlsSkipVerify {
+			// Use system certificates when no CA cert provided and verification enabled
+			// This is needed for AWS MSK and other managed Kafka services
+			systemCertPool, err := x509.SystemCertPool()
+			if err != nil {
+				log.Printf("Warning: Failed to load system certificates, using empty pool: %v", err)
+				systemCertPool = x509.NewCertPool()
+			}
+			tlsConfig.RootCAs = systemCertPool
 		}
 
 		// Load client certificate and key for mTLS
