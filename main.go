@@ -78,6 +78,25 @@ type ConsumerGroupInfo struct {
 	State   string   `json:"state"`
 }
 
+type PartitionOffset struct {
+	Partition int    `json:"partition"`
+	Offset    int64  `json:"offset"`
+	Timestamp int64  `json:"timestamp,omitempty"`
+	Lag       int64  `json:"lag,omitempty"`
+}
+
+type ConsumerGroupOffsets struct {
+	Group     string                       `json:"group"`
+	Topics    map[string][]PartitionOffset `json:"topics"`
+	Timestamp string                       `json:"captured_at"`
+}
+
+type ConsumerOffsetsBackup struct {
+	Timestamp      string                  `json:"timestamp"`
+	Cluster        string                  `json:"cluster"`
+	ConsumerGroups []ConsumerGroupOffsets  `json:"consumer_groups"`
+}
+
 type KafkaClusterInfo struct {
 	Timestamp           string              `json:"timestamp"`
 	Brokers             []string            `json:"broker_addresses"`
@@ -96,6 +115,8 @@ func main() {
 	outputHTML := flag.String("html", "kafka-cluster-report.html", "Output HTML report")
 	outputDOT := flag.String("dot", "", "Output DOT file for Graphviz visualization (optional)")
 	recreateScript := flag.String("recreate-script", "", "Generate shell script to recreate topics (optional)")
+	saveOffsets := flag.String("save-offsets", "", "Save consumer group offsets to JSON file (optional)")
+	restoreOffsetsScript := flag.String("restore-offsets-script", "", "Generate script to restore consumer offsets (requires -save-offsets)")
 	showVersion := flag.Bool("version", false, "Show version information")
 
 	// Authentication flags
@@ -454,6 +475,30 @@ func main() {
 		log.Printf("Generating topic recreation script to %s...", *recreateScript)
 		if err := generateRecreateScript(&clusterInfo, *recreateScript); err != nil {
 			log.Fatalf("Error generating recreation script: %v", err)
+		}
+	}
+
+	// Save consumer group offsets if requested
+	var offsetsBackup *ConsumerOffsetsBackup
+	if *saveOffsets != "" || *restoreOffsetsScript != "" {
+		log.Println("Fetching consumer group offsets...")
+		offsetsBackup, err = fetchConsumerOffsets(admin, consumerGroups, brokerList[0])
+		if err != nil {
+			log.Fatalf("Error fetching consumer offsets: %v", err)
+		}
+
+		if *saveOffsets != "" {
+			log.Printf("Saving consumer offsets to %s...", *saveOffsets)
+			if err := saveConsumerOffsetsToFile(offsetsBackup, *saveOffsets); err != nil {
+				log.Fatalf("Error saving offsets: %v", err)
+			}
+		}
+
+		if *restoreOffsetsScript != "" {
+			log.Printf("Generating offset restore script to %s...", *restoreOffsetsScript)
+			if err := generateRestoreOffsetsScript(offsetsBackup, *restoreOffsetsScript); err != nil {
+				log.Fatalf("Error generating restore script: %v", err)
+			}
 		}
 	}
 

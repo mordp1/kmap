@@ -9,8 +9,8 @@ Analyze Kafka clusters and export to JSON/HTML/DOT formats. Single binary, all a
 - 👥 **Consumer groups** - Members, subscriptions, state  
 - 📁 **JSON export** - Recreate topics elsewhere
 - 📈 **HTML reports** - Clean tables with broker and topic details
-- 🗺️ **Graphviz DOT** - High-quality visualizations for large clusters
-- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
+- 🗺️ **Graphviz DOT** - High-quality visualizations for large clusters- 🔄 **Topic recreation script** - Generate executable scripts to recreate all topics on another cluster
+- 💾 **Consumer offset backup** - Save and restore consumer group positions for migration/DR- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
 - 🚀 **Single binary** - No dependencies
 
 ## Quick Start
@@ -40,6 +40,8 @@ kmap -brokers kafka:9092 -dot topology.dot
 -html string             HTML report (default "kafka-cluster-report.html")
 -dot string              Graphviz DOT file (optional)
 -recreate-script string  Shell script to recreate topics (optional)
+-save-offsets string     Save consumer group offsets to JSON file
+-restore-offsets-script string  Generate script to restore consumer offsets
 -version                 Show version
 
 Authentication:
@@ -140,6 +142,46 @@ The script includes:
 - DR environment setup
 - Dev/Test environment creation
 - Cluster replication
+
+**See [RECREATE_TOPICS.md](RECREATE_TOPICS.md) for detailed documentation.**
+
+### Consumer Offset Backup & Restore
+Save consumer group positions and generate restore script:
+
+```bash
+# Backup offsets
+kmap -brokers kafka:9092 \
+  -save-offsets consumer-offsets.json \
+  -restore-offsets-script restore-offsets.sh
+
+# Edit target cluster in script
+nano restore-offsets.sh  # Change BOOTSTRAP_SERVERS
+
+# Restore on target cluster
+chmod +x restore-offsets.sh
+./restore-offsets.sh
+```
+
+The backup includes:
+- All consumer groups with committed offsets
+- Per-topic, per-partition offset positions
+- Timestamp of backup
+- Automatic filtering of empty groups
+
+The restore script:
+- Uses `kafka-consumer-groups.sh --reset-offsets`
+- Supports authentication via `--command-config`
+- Tracks success/failure for each group
+- Provides detailed progress and summary
+
+**Perfect for:**
+- Cluster migration (preserve consumer progress)
+- Disaster recovery
+- Environment synchronization (dev/test/prod)
+- Reprocessing scenarios
+- Consumer group rollback
+
+**See [CONSUMER_OFFSETS.md](CONSUMER_OFFSETS.md) for detailed documentation.**
 
 ### Manual topic recreation
 Extract topics from JSON:
