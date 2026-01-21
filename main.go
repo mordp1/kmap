@@ -898,13 +898,23 @@ func getTopicMessageCount(client sarama.Client, topic string, partitions int) in
 	var total int64
 
 	for partition := 0; partition < partitions; partition++ {
-		// Get high watermark (newest offset) for this partition
-		offset, err := client.GetOffset(topic, int32(partition), sarama.OffsetNewest)
+		// Get high watermark (newest offset) - latest offset
+		newestOffset, err := client.GetOffset(topic, int32(partition), sarama.OffsetNewest)
 		if err != nil {
-			log.Printf("Warning: Could not get offset for topic %s partition %d: %v", topic, partition, err)
+			log.Printf("Warning: Could not get newest offset for topic %s partition %d: %v", topic, partition, err)
 			continue
 		}
-		total += offset
+
+		// Get low watermark (oldest offset) - earliest available offset after retention/compaction
+		oldestOffset, err := client.GetOffset(topic, int32(partition), sarama.OffsetOldest)
+		if err != nil {
+			log.Printf("Warning: Could not get oldest offset for topic %s partition %d: %v", topic, partition, err)
+			continue
+		}
+
+		// Actual messages = newest - oldest (accounts for retention and log compaction)
+		messagesInPartition := newestOffset - oldestOffset
+		total += messagesInPartition
 	}
 
 	return total
