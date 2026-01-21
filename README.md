@@ -59,52 +59,20 @@ TLS:
 
 ## Authentication
 
-### Local/No Auth
+kmap supports all major authentication methods. See [AUTH.md](AUTH.md) for complete examples.
+
+**Quick examples:**
 ```bash
+# No auth (local)
 kmap -brokers localhost:9092
-```
 
-### Confluent Cloud
-```bash
-kmap -brokers xxxxx.region.aws.confluent.cloud:9092 \
-  -security-protocol SASL_SSL \
-  -sasl-username <API-KEY> \
-  -sasl-password <API-SECRET>
-```
+# Confluent Cloud
+kmap -brokers xxx.confluent.cloud:9092 -security-protocol SASL_SSL \
+  -sasl-username <API-KEY> -sasl-password <API-SECRET>
 
-### SCRAM
-```bash
-kmap -brokers broker:9093 \
-  -security-protocol SASL_SSL \
-  -sasl-mechanism SCRAM-SHA-256 \
-  -sasl-username admin \
-  -sasl-password secret
-```
-
-### mTLS
-```bash
-kmap -brokers broker:9093 \
-  -security-protocol SSL \
-  -tls-ca-cert ca.pem \
-  -tls-client-cert client.pem \
-  -tls-client-key client.key
-```
-
-### AWS MSK (SCRAM)
-```bash
-kmap -brokers b-1.cluster.kafka.us-east-1.amazonaws.com:9096 \
-  -security-protocol SASL_SSL \
-  -sasl-mechanism SCRAM-SHA-512 \
-  -sasl-username <USER> \
-  -sasl-password <PASS>
-```
-
-### Azure Event Hubs
-```bash
-kmap -brokers <namespace>.servicebus.windows.net:9093 \
-  -security-protocol SASL_SSL \
-  -sasl-username '$ConnectionString' \
-  -sasl-password '<connection-string>'
+# AWS MSK with SCRAM
+kmap -brokers b-1.cluster.kafka.aws.com:9096 -security-protocol SASL_SSL \
+  -sasl-mechanism SCRAM-SHA-512 -sasl-username <USER> -sasl-password <PASS>
 ```
 
 ## Output Formats
@@ -210,70 +178,11 @@ For large clusters (100+ topics) or external tooling:
 ```bash
 # Generate
 kmap -brokers kafka:9092 -dot topology.dot
-
-# Install Graphviz
-brew install graphviz              # macOS
-sudo apt install graphviz          # Linux
-
-# Convert
-dot -Tpng -Gdpi=300 topology.dot -o diagram.png
-dot -Tsvg topology.dot -o diagram.svg
-dot -Tpdf topology.dot -o diagram.pdf
-
-# Or use helper
-./dot-to-image.sh topology.dot
 ```
 
-**View DOT online (no install):**
-- https://dreampuf.github.io/GraphvizOnline/
-- https://edotor.net/
+See [GRAPHVIZ_GUIDE.md](GRAPHVIZ_GUIDE.md) for rendering options and visualization techniques.
 
 ## Deployment
-
-### Server
-```bash
-scp bin/kmap-linux-amd64 server:/usr/local/bin/kmap
-ssh server "kmap -brokers kafka:9092"
-```
-
-### Kubernetes Pod
-```bash
-kubectl cp bin/kmap-linux-amd64 pod:/tmp/kmap
-kubectl exec pod -- /tmp/kmap -brokers kafka:9092
-kubectl cp pod:/kafka-cluster-info.json ./
-```
-
-### Docker
-```bash
-docker run --rm --network kafka-net -v $(pwd):/output alpine sh -c "
-  wget -O /tmp/kmap https://releases.company.com/kmap-linux-amd64
-  chmod +x /tmp/kmap
-  /tmp/kmap -brokers kafka:9092 -output /output/cluster.json
-"
-```
-
-### K8s Job
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: kmap
-spec:
-  template:
-    spec:
-      containers:
-      - name: kmap
-        image: alpine
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            wget -O /tmp/kmap https://releases.company.com/kmap-linux-amd64
-            chmod +x /tmp/kmap
-            /tmp/kmap -brokers kafka:9092
-      restartPolicy: Never
-```
-
-## Building
 
 ```bash
 make build              # All platforms
@@ -308,62 +217,21 @@ kmap -brokers kafka:9092 -dot topology.dot
 dot -Tsvg topology.dot -o topology.svg
 ```
 
+## Building
+
+```bash
+make build              # All platforms
+make linux-amd64        # Specific platform
+go build -o kmap        # Local development
+```
+
 ## Security Best Practices
 
-✅ Use `SASL_SSL` in production  
-✅ Store creds in env vars  
-✅ Prefer SCRAM over PLAIN  
-✅ Verify TLS certificates  
-✅ Use mTLS for highest security  
-
-❌ Don't use PLAINTEXT in prod  
-❌ Don't hard-code credentials  
-❌ Don't use `-tls-skip-verify` in prod  
-
-## Use Cases
-
-- **Cluster Health** - Check broker versions, detect under-replicated partitions (URPs)
-- **Load Balancing** - View partition/leader distribution across brokers
-- **Cluster Discovery** - What topics/consumers exist?
-- **Migration** - Export/recreate topics in new cluster
-- **Documentation** - Generate topology diagrams
-- **Monitoring** - Track cluster changes over time
-- **Audit** - Who consumes what topics?
-- **Capacity Planning** - Identify heavily-used topics
-
-## Examples
-
-### Daily Backup
-```bash
-#!/bin/bash
-DATE=$(date +%Y-%m-%d)
-kmap -brokers kafka:9092 -output backup-$DATE.json
-```
-
-### Weekly Report
-```bash
-#!/bin/bash
-kmap -brokers kafka:9092 -html report.html -dot topology.dot
-dot -Tpng topology.dot -o topology.png
-# Email report.html and topology.png
-```
-
-### CI/CD Health Check
-```bash
-# GitHub Actions
-- run: |
-    ./kmap -brokers $KAFKA_BROKERS -output cluster.json
-    test $(jq '.total_topics' cluster.json) -gt 0
-```
-
-## Contributing
-
-```bash
-go mod download
-go run main.go -brokers localhost:9092
-go test ./...
-go fmt ./...
-```
+- ✅ Use `SASL_SSL` in production
+- ✅ Store credentials in environment variables or secure vaults
+- ✅ Prefer SCRAM over PLAIN authentication
+- ✅ Verify TLS certificates (avoid `-tls-skip-verify` in production)
+- ✅ Use mTLS for highest security requirements
 
 ## License
 
@@ -371,7 +239,5 @@ MIT
 
 ---
 
-**Project:** https://github.com/yourorg/kmap  
-**Binaries:** `bin/kmap-*`  
-**Docs:** This README  
-**Support:** Open an issue
+**GitHub:** https://github.com/mordp1/kmap  
+**Documentation:** [README.md](README.md) • [AUTH.md](AUTH.md) • [RECREATE_TOPICS.md](RECREATE_TOPICS.md) • [CONSUMER_OFFSETS.md](CONSUMER_OFFSETS.md) • [GRAPHVIZ_GUIDE.md](GRAPHVIZ_GUIDE.md)

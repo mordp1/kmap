@@ -2,26 +2,26 @@
 kafka-analyzer
 kafka-analyzer-*
 kmap
-kmap-*
+kmap-test
 *.exe
-bin/
-msk-deploy/
 
 # Output files
 kafka-cluster-info.json
 kafka-cluster-report.html
-kafka-relationships.dot
 kafka-topology.dot
+consumer-offsets.json
+restore-offsets.sh
 recreate-topics.sh
+test-recreate*.sh
 *.dot
 *.png
 *.svg
 *.pdf
-cluster-*.json
-cluster-*.html
-client.config
-*.backup
-*.bak
+*.html
+*.json
+
+# Release notes (generated)
+release-notes-*.md
 
 # Go
 vendor/
