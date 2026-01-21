@@ -704,6 +704,10 @@ func generateHTMLReport(info *KafkaClusterInfo, filename string) error {
                 <div class="stat-label">Total Partitions</div>
             </div>
             <div class="stat-card">
+                <div class="stat-number">%s</div>
+                <div class="stat-label">Total Messages</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-number">%d</div>
                 <div class="stat-label">Consumer Groups</div>
             </div>
@@ -724,7 +728,7 @@ func generateHTMLReport(info *KafkaClusterInfo, filename string) error {
                         </tr>
                     </thead>
                     <tbody>
-`, info.Timestamp, len(info.BrokerDetails), info.TotalTopics, info.TotalPartitions, info.TotalConsumerGroups, getURPCard(info.TotalURPs))
+`, info.Timestamp, len(info.BrokerDetails), info.TotalTopics, info.TotalPartitions, formatNumber(info.TotalMessages), info.TotalConsumerGroups, getURPCard(info.TotalURPs))
 
 	for _, broker := range info.BrokerDetails {
 		urpBadge := "badge-success"
@@ -755,6 +759,7 @@ func generateHTMLReport(info *KafkaClusterInfo, filename string) error {
                             <th>Topic Name</th>
                             <th>Partitions</th>
                             <th>Replication Factor</th>
+                            <th>Total Messages</th>
                             <th>Custom Configurations</th>
                         </tr>
                     </thead>
@@ -778,9 +783,10 @@ func generateHTMLReport(info *KafkaClusterInfo, filename string) error {
                             <td class="topic-name">%s</td>
                             <td><span class="badge badge-info">%d</span></td>
                             <td><span class="badge badge-success">%d</span></td>
+                            <td><span class="badge badge-info">%s</span></td>
                             <td class="config-details">%s</td>
                         </tr>
-`, topic.Name, topic.Partitions, topic.ReplicationFactor, configStr)
+`, topic.Name, topic.Partitions, topic.ReplicationFactor, formatNumber(topic.TotalMessages), configStr)
 	}
 
 	html += `                    </tbody>
@@ -863,7 +869,7 @@ func formatNumber(n int64) string {
 	if n == 0 {
 		return "0"
 	}
-	
+
 	// Format with commas for readability
 	s := fmt.Sprintf("%d", n)
 	result := ""
@@ -873,7 +879,7 @@ func formatNumber(n int64) string {
 		}
 		result += string(c)
 	}
-	
+
 	// Also show human-readable format for large numbers
 	if n >= 1000000000000 { // Trillion
 		return fmt.Sprintf("%s (%.2fT)", result, float64(n)/1000000000000)
@@ -884,13 +890,13 @@ func formatNumber(n int64) string {
 	} else if n >= 1000 { // Thousand
 		return fmt.Sprintf("%s (%.2fK)", result, float64(n)/1000)
 	}
-	
+
 	return result
 }
 
 func getTopicMessageCount(client sarama.Client, topic string, partitions int) int64 {
 	var total int64
-	
+
 	for partition := 0; partition < partitions; partition++ {
 		// Get high watermark (newest offset) for this partition
 		offset, err := client.GetOffset(topic, int32(partition), sarama.OffsetNewest)
@@ -900,7 +906,7 @@ func getTopicMessageCount(client sarama.Client, topic string, partitions int) in
 		}
 		total += offset
 	}
-	
+
 	return total
 }
 
