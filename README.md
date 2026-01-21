@@ -9,8 +9,12 @@ Analyze Kafka clusters and export to JSON/HTML/DOT formats. Single binary, all a
 - 👥 **Consumer groups** - Members, subscriptions, state  
 - 📁 **JSON export** - Recreate topics elsewhere
 - 📈 **HTML reports** - Clean tables with broker and topic details
-- 🗺️ **Graphviz DOT** - High-quality visualizations for large clusters- 🔄 **Topic recreation script** - Generate executable scripts to recreate all topics on another cluster
-- 💾 **Consumer offset backup** - Save and restore consumer group positions for migration/DR- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
+- 🗺️ **Graphviz DOT** - High-quality visualizations for large clusters
+- 🔄 **Topic recreation script** - Generate executable scripts to recreate all topics on another cluster
+- 💾 **Consumer offset backup** - Save and restore consumer group positions for migration/DR
+- 📊 **Message counting** - Total messages per topic and cluster-wide for migration validation
+- 🔍 **Cluster comparison** - Compare source/target clusters to validate migrations
+- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
 - 🚀 **Single binary** - No dependencies
 
 ## Quick Start
@@ -144,6 +148,38 @@ The restore script:
 
 **Perfect for:**
 - Cluster migration (preserve consumer progress)
+- DR environment sync
+- Rolling back consumer positions
+- Testing with consistent offsets
+
+### Migration Validation
+Compare message counts between clusters to validate migrations:
+
+```bash
+# Capture source cluster
+./kmap -brokers source:9092 -output source-cluster.json
+
+# Capture target cluster
+./kmap -brokers target:9092 -output target-cluster.json
+
+# Compare
+./compare-clusters.sh source-cluster.json target-cluster.json
+```
+
+The comparison shows:
+- **Metrics**: Topics, partitions, messages, brokers comparison
+- **Replication %**: Message count match percentage
+- **Missing/Extra Topics**: Topics in one cluster but not the other
+- **Top Topics**: Largest topics by message count comparison
+- **Status**: ✅ Success / ⚠️ Warning / ❌ Issues
+
+**Perfect for:**
+- Validating cluster migrations
+- Monitoring replication progress
+- Detecting data loss
+- Capacity planning
+
+**Note**: Message counting adds ~1-3 minutes for 300+ topics
 - Disaster recovery
 - Environment synchronization (dev/test/prod)
 - Reprocessing scenarios
