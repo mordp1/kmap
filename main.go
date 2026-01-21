@@ -68,6 +68,7 @@ type TopicInfo struct {
 	Name              string            `json:"name"`
 	Partitions        int               `json:"partitions"`
 	ReplicationFactor int               `json:"replication_factor"`
+	TotalMessages     int64             `json:"total_messages"`
 	Configs           map[string]string `json:"configs,omitempty"`
 }
 
@@ -106,6 +107,7 @@ type KafkaClusterInfo struct {
 	TotalTopics         int                 `json:"total_topics"`
 	TotalConsumerGroups int                 `json:"total_consumer_groups"`
 	TotalPartitions     int                 `json:"total_partitions"`
+	TotalMessages       int64               `json:"total_messages"`
 	TotalURPs           int                 `json:"total_under_replicated_partitions"`
 }
 
@@ -266,6 +268,13 @@ func main() {
 	}
 	defer admin.Close()
 
+	// Create client for offset operations
+	client, err := sarama.NewClient(brokerList, config)
+	if err != nil {
+		log.Fatalf("Error creating Kafka client: %v", err)
+	}
+	defer client.Close()
+
 	clusterInfo := KafkaClusterInfo{
 		Timestamp: time.Now().Format(time.RFC3339),
 		Brokers:   brokerList,
@@ -324,6 +333,9 @@ func main() {
 			}
 		}
 
+		// Get high watermarks (total messages) for all partitions
+		topicInfo.TotalMessages = getTopicMessageCount(client, name, int(detail.NumPartitions))
+
 		topicInfos = append(topicInfos, topicInfo)
 	}
 
@@ -334,6 +346,7 @@ func main() {
 	clusterInfo.Topics = topicInfos
 	clusterInfo.TotalTopics = len(topicInfos)
 	clusterInfo.TotalPartitions = getTotalPartitions(topicInfos)
+	clusterInfo.TotalMessages = getTotalMessages(topicInfos)
 
 	// Calculate partition and leader distribution across brokers
 	if len(clusterInfo.BrokerDetails) > 0 {
@@ -507,6 +520,7 @@ func main() {
 	log.Printf("  Total Brokers: %d", len(clusterInfo.BrokerDetails))
 	log.Printf("  Total Topics: %d", clusterInfo.TotalTopics)
 	log.Printf("  Total Partitions: %d", clusterInfo.TotalPartitions)
+	log.Printf("  Total Messages: %s", formatNumber(clusterInfo.TotalMessages))
 	log.Printf("  Total Consumer Groups: %d", clusterInfo.TotalConsumerGroups)
 	if clusterInfo.TotalURPs > 0 {
 		log.Printf("  ⚠️  Under-Replicated Partitions: %d", clusterInfo.TotalURPs)
@@ -837,6 +851,59 @@ func getTotalPartitions(topics []TopicInfo) int {
 	return total
 }
 
+func getTotalMessages(topics []TopicInfo) int64 {
+	var total int64
+	for _, topic := range topics {
+		total += topic.TotalMessages
+	}
+	return total
+}
+
+func formatNumber(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	
+	// Format with commas for readability
+	s := fmt.Sprintf("%d", n)
+	result := ""
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(c)
+	}
+	
+	// Also show human-readable format for large numbers
+	if n >= 1000000000000 { // Trillion
+		return fmt.Sprintf("%s (%.2fT)", result, float64(n)/1000000000000)
+	} else if n >= 1000000000 { // Billion
+		return fmt.Sprintf("%s (%.2fB)", result, float64(n)/1000000000)
+	} else if n >= 1000000 { // Million
+		return fmt.Sprintf("%s (%.2fM)", result, float64(n)/1000000)
+	} else if n >= 1000 { // Thousand
+		return fmt.Sprintf("%s (%.2fK)", result, float64(n)/1000)
+	}
+	
+	return result
+}
+
+func getTopicMessageCount(client sarama.Client, topic string, partitions int) int64 {
+	var total int64
+	
+	for partition := 0; partition < partitions; partition++ {
+		// Get high watermark (newest offset) for this partition
+		offset, err := client.GetOffset(topic, int32(partition), sarama.OffsetNewest)
+		if err != nil {
+			log.Printf("Warning: Could not get offset for topic %s partition %d: %v", topic, partition, err)
+			continue
+		}
+		total += offset
+	}
+	
+	return total
+}
+
 func generateDOTFile(info *KafkaClusterInfo, filename string) error {
 	var dot strings.Builder
 
@@ -966,7 +1033,7 @@ func generateRecreateScript(info *KafkaClusterInfo, filename string) error {
 		if strings.HasPrefix(topic.Name, "__") {
 			continue
 		}
-		
+
 		topicIndex++
 		script.WriteString(fmt.Sprintf("# Topic %d: %s\n", topicIndex, topic.Name))
 		script.WriteString(fmt.Sprintf("echo \"[%d] Creating topic: %s\"\n", topicIndex, topic.Name))
