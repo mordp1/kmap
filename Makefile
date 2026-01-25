@@ -1,7 +1,7 @@
 .PHONY: all build clean dev staging prod linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64 help release
 
 # Variables
-VERSION ?= 1.3.0
+VERSION ?= 1.3.1
 BINARY_NAME = kmap
 OUTPUT_DIR = bin
 BUILD_TIME = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")

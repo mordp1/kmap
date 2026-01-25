@@ -5,6 +5,24 @@ All notable changes to kmap will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-01-25
+
+### Added
+- **KRaft Mode Support** - Full compatibility with ZooKeeper-free Kafka
+  - Hybrid implementation: kafka-log-dirs.sh (primary) + Sarama API (fallback)
+  - Automatic kafka-log-dirs.sh discovery in common paths
+  - Intelligent fallback mechanism for maximum compatibility
+  - `KRAFT_COMPATIBILITY.md` - Comprehensive KRaft mode guide
+
+### Fixed
+- Resolved EOF errors when using topic-sizes on KRaft-mode Kafka clusters
+- Improved Sarama DescribeLogDirs API compatibility handling
+- Better error messages indicating which method (CLI vs API) was used
+
+### Changed
+- Updated README.md with KRaft support highlight
+- Enhanced documentation for topic-sizes feature
+
 ## [1.3.0] - 2026-01-25
 
 ### Added
