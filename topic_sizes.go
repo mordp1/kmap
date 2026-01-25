@@ -71,31 +71,50 @@ func getTopicSizes(brokers []string, config *sarama.Config, topicFilter []string
 	brokerIDs := client.Brokers()
 	log.Printf("Found %d brokers", len(brokerIDs))
 
+	// Refresh metadata to ensure brokers are up to date
+	if err := client.RefreshMetadata(); err != nil {
+		log.Printf("Warning: Could not refresh metadata: %v", err)
+	}
+
 	// Map to store topic sizes (topic -> total size)
 	topicSizes := make(map[string]int64)
 	topicPartitions := make(map[string]map[int32]bool) // Track unique partitions per topic
 
 	// Query each broker
 	for _, broker := range brokerIDs {
-		err := broker.Open(config)
-		if err != nil {
-			log.Printf("Warning: Could not connect to broker %d: %v", broker.ID(), err)
-			continue
+		log.Printf("Querying broker %d at %s...", broker.ID(), broker.Addr())
+		
+		// Ensure broker is connected
+		if ok, _ := broker.Connected(); !ok {
+			if err := broker.Open(config); err != nil {
+				log.Printf("Warning: Could not connect to broker %d at %s: %v", broker.ID(), broker.Addr(), err)
+				continue
+			}
 		}
 
-		// Create DescribeLogDirs request (empty means all directories)
-		request := &sarama.DescribeLogDirsRequest{}
+		// Create DescribeLogDirs request - Version 0, empty DescribeTopics means all topics
+		request := &sarama.DescribeLogDirsRequest{
+			Version:        0,
+			DescribeTopics: []sarama.DescribeLogDirsRequestTopic{},
+		}
 
+		log.Printf("Sending DescribeLogDirs request to broker %d...", broker.ID())
 		response, err := broker.DescribeLogDirs(request)
+		
 		if err != nil {
-			log.Printf("Warning: Error querying log dirs from broker %d: %v", broker.ID(), err)
-			broker.Close()
+			log.Printf("Warning: Error querying log dirs from broker %d at %s: %v", broker.ID(), broker.Addr(), err)
 			continue
 		}
 
 		// Process response
+		if len(response.LogDirs) == 0 {
+			log.Printf("Warning: No log directories returned from broker %d", broker.ID())
+			continue
+		}
+
 		for _, logDirInfo := range response.LogDirs {
 			if logDirInfo.ErrorCode != sarama.ErrNoError {
+				log.Printf("Warning: Log directory error on broker %d: %v", broker.ID(), logDirInfo.ErrorCode)
 				continue
 			}
 
@@ -120,8 +139,6 @@ func getTopicSizes(brokers []string, config *sarama.Config, topicFilter []string
 				}
 			}
 		}
-
-		broker.Close()
 	}
 
 	if len(topicSizes) == 0 {
