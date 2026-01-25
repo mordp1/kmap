@@ -278,9 +278,17 @@ func main() {
 			}
 		}
 
-		report, err := getTopicSizes(brokerList, config, topicFilter)
+		// Try kafka-log-dirs.sh first (KRaft-compatible)
+		log.Println("Attempting to use kafka-log-dirs.sh for KRaft compatibility...")
+		report, err := getTopicSizesViaCLI(config, brokerList, topicFilter)
+		
+		// If CLI method fails, fall back to Sarama API (works on ZooKeeper-based Kafka)
 		if err != nil {
-			log.Fatalf("Error getting topic sizes: %v", err)
+			log.Printf("kafka-log-dirs.sh failed (%v), falling back to Sarama API...", err)
+			report, err = getTopicSizes(brokerList, config, topicFilter)
+			if err != nil {
+				log.Fatalf("Error getting topic sizes: %v", err)
+			}
 		}
 
 		// Print report to console
