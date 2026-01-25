@@ -121,6 +121,11 @@ func main() {
 	restoreOffsetsScript := flag.String("restore-offsets-script", "", "Generate script to restore consumer offsets (requires -save-offsets)")
 	showVersion := flag.Bool("version", false, "Show version information")
 
+	// Topic size flags
+	topicSizes := flag.Bool("topic-sizes", false, "Calculate and display topic sizes")
+	topicSizesOutput := flag.String("topic-sizes-output", "", "Save topic sizes report to JSON file (optional)")
+	topicList := flag.String("topic-list", "", "Comma-separated list of topics to check (optional, default: all topics)")
+
 	// Authentication flags
 	securityProtocol := flag.String("security-protocol", "", "Security protocol (SASL_SSL, SASL_PLAINTEXT, SSL, or empty for PLAINTEXT)")
 	saslMechanism := flag.String("sasl-mechanism", "PLAIN", "SASL mechanism (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512)")
@@ -260,6 +265,36 @@ func main() {
 			}
 			log.Printf("Using %s authentication", authType)
 		}
+	}
+
+	// Handle topic sizes request (separate mode)
+	if *topicSizes {
+		var topicFilter []string
+		if *topicList != "" {
+			topicFilter = strings.Split(*topicList, ",")
+			// Trim whitespace from topic names
+			for i, topic := range topicFilter {
+				topicFilter[i] = strings.TrimSpace(topic)
+			}
+		}
+
+		report, err := getTopicSizes(brokerList, config, topicFilter)
+		if err != nil {
+			log.Fatalf("Error getting topic sizes: %v", err)
+		}
+
+		// Print report to console
+		printTopicSizes(report)
+
+		// Save to file if requested
+		if *topicSizesOutput != "" {
+			if err := saveTopicSizesJSON(report, *topicSizesOutput); err != nil {
+				log.Fatalf("Error saving report: %v", err)
+			}
+		}
+
+		// Exit after topic sizes - this is a separate mode
+		return
 	}
 
 	admin, err := sarama.NewClusterAdmin(brokerList, config)

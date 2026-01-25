@@ -13,7 +13,8 @@ Analyze Kafka clusters and export to JSON/HTML/DOT formats. Single binary, all a
 - 🔄 **Topic recreation script** - Generate executable scripts to recreate all topics on another cluster
 - 💾 **Consumer offset backup** - Save and restore consumer group positions for migration/DR
 - 📊 **Message counting** - Total messages per topic and cluster-wide for migration validation
-- 🔍 **Cluster comparison** - Compare source/target clusters to validate migrations
+- � **Topic size calculation** - Calculate actual disk usage per topic across all brokers and partitions
+- �🔍 **Cluster comparison** - Compare source/target clusters to validate migrations
 - 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
 - 🚀 **Single binary** - No dependencies
 
@@ -46,6 +47,9 @@ kmap -brokers kafka:9092 -dot topology.dot
 -recreate-script string  Shell script to recreate topics (optional)
 -save-offsets string     Save consumer group offsets to JSON file
 -restore-offsets-script string  Generate script to restore consumer offsets
+-topic-sizes             Calculate and display topic sizes (disk usage)
+-topic-sizes-output string  Save topic sizes report to JSON file (optional)
+-topic-list string       Comma-separated list of topics to check (optional, default: all)
 -version                 Show version
 
 Authentication:
@@ -151,6 +155,77 @@ The restore script:
 - DR environment sync
 - Rolling back consumer positions
 - Testing with consistent offsets
+
+### Topic Size Calculation
+Calculate actual disk usage for topics across all brokers and partitions:
+
+```bash
+# Check all topics
+kmap -brokers kafka:9092 -topic-sizes
+
+# Check specific topics
+kmap -brokers kafka:9092 -topic-sizes -topic-list "topic1,topic2,topic3"
+
+# With authentication (AWS MSK)
+kmap -brokers b-1.cluster.kafka.aws.com:9096 \
+  -security-protocol SASL_SSL \
+  -sasl-mechanism SCRAM-SHA-512 \
+  -sasl-username <USER> \
+  -sasl-password <PASS> \
+  -topic-sizes
+
+# Save to JSON file
+kmap -brokers kafka:9092 -topic-sizes -topic-sizes-output topic-sizes.json
+```
+
+The report shows:
+- **Topic name** - Name of each topic
+- **Partitions** - Number of partitions
+- **Total size** - Human-readable size (GiB, TiB, etc.)
+- **Size in bytes** - Exact byte count
+- **Summary** - Total topics, partitions, and cluster-wide disk usage
+
+**Features:**
+- Queries all brokers via DescribeLogDirs API
+- Accounts for replication (shows total replicated size)
+- Sorted by size (largest first)
+- Formatted output table with summary
+- Optional JSON export for automation
+- Filter by specific topics
+
+**Perfect for:**
+- Storage capacity planning
+- Identifying largest topics
+- Cost optimization
+- Migration planning (estimate target storage)
+- Monitoring disk usage trends
+- Retention policy decisions
+
+**Example output:**
+```
+================================================================================
+Kafka Topic Sizes Report
+Generated: 2026-01-25T10:30:00Z
+Cluster: broker1:9092,broker2:9092,broker3:9092
+================================================================================
+
+TOPIC                                   PARTITIONS   TOTAL SIZE    SIZE (BYTES)
+----------------------------------------  ----------   ------------  ---------------
+aws.traffic.cdc.shipping-v1             20           2.14 TiB      2,353,578,067,422
+orders.events                           12           456.78 GiB    490,463,289,344
+user.activity                           8            123.45 GiB    132,547,821,568
+
+================================================================================
+Summary:
+  Total Topics: 3
+  Total Partitions: 40
+  Total Size: 2.71 TiB (2,976,589,178,334 bytes)
+================================================================================
+```
+
+**Note:** The sizes shown include replication factor (e.g., RF=3 means 3x the logical data size).
+
+**See [TOPIC_SIZES.md](TOPIC_SIZES.md) for detailed documentation and examples.**
 
 ### Migration Validation
 Compare message counts between clusters to validate migrations:
