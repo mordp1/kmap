@@ -15,8 +15,7 @@ Analyze Kafka clusters and export to JSON/HTML/DOT formats. Single binary, all a
 - 📊 **Message counting** - Total messages per topic and cluster-wide for migration validation
 - � **Topic size calculation** - Calculate actual disk usage per topic across all brokers and partitions
 - �🔍 **Cluster comparison** - Compare source/target clusters to validate migrations
-- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS
-- 🚀 **Single binary** - No dependencies
+- 🔐 **All auth methods** - SASL/PLAIN/SCRAM, TLS, mTLS- ⚡️ **KRaft mode support** - Full compatibility with ZooKeeper-free Kafka (3.0+)- 🚀 **Single binary** - No dependencies
 
 ## Quick Start
 
@@ -224,6 +223,8 @@ Summary:
 ```
 
 **Note:** The sizes shown include replication factor (e.g., RF=3 means 3x the logical data size).
+
+**KRaft Mode Support:** Fully compatible with both KRaft-mode and ZooKeeper-based Kafka. See [KRAFT_COMPATIBILITY.md](KRAFT_COMPATIBILITY.md) for details.
 
 **See [TOPIC_SIZES.md](TOPIC_SIZES.md) for detailed documentation and examples.**
 
